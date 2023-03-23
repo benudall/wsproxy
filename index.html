@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<title>wsproxy</title>
+	<style>
+		html,
+		body,
+		#controller {
+			height: 100%;
+		}
+
+		* {
+			font-family: monospace;
+			font-size: 13px;
+		}
+
+		body {
+			margin: 0;
+			background: black;
+			color: white;
+		}
+
+		#controller {
+			display: grid;
+			grid-template-columns: 100%;
+			grid-template-rows: auto 1fr;
+		}
+
+		#header {
+			font-size: 0;
+		}
+
+		#header>* {
+			font-size: initial;
+		}
+
+		.connection {
+			display: inline-block;
+			vertical-align: top;
+			width: 50%;
+			border: 1px solid white;
+			box-sizing: border-box;
+		}
+
+		.readyState {
+			display: inline-block;
+			width: 80px;
+			height: 1em;
+			text-align: center;
+			border: 1px solid;
+			border-radius: 0.5em;
+			border-color: inherit;
+			margin-left: 1px;
+		}
+
+		.CONNECTING,
+		.CLOSING {
+			color: #ffff00;
+			border-color: #ffff00;
+		}
+
+		.OPEN {
+			color: #00ff00;
+			border-color: #00ff00;
+		}
+
+		.CLOSED {
+			color: #ff0000;
+			border-color: #ff0000;
+		}
+
+		button,
+		.checkBoxLabel,
+		input[type=checkbox] {
+			cursor: pointer;
+		}
+
+		#incomingname,
+		#outgoingname {
+			width: 50px;
+		}
+
+		input#outgoingurl {
+			width: 250px;
+		}
+
+		.cachedMessages {
+			background: #ffff00;
+			color: black;
+		}
+
+		#incomingInsert,
+		#outgoingInsert {
+			width: calc(100% - 50px);
+			box-sizing: border-box;
+		}
+
+		button.send {
+			width: 50px;
+		}
+
+		#hijackingToggle.true {
+			background: #00ff00;
+		}
+
+		#hijackingToggle.false {
+			background: #ff0000;
+			color: white;
+		}
+
+		#tableWrapper {
+			overflow-y: scroll;
+			border-top: 1px solid white;
+		}
+
+		#tableWrapper::-webkit-scrollbar {
+			width: 10px;
+			height: 10px;
+		}
+
+		#tableWrapper::-webkit-scrollbar-track {
+			background: #404040;
+		}
+
+		#tableWrapper::-webkit-scrollbar-thumb {
+			background: #C0C0C0;
+		}
+
+		table {
+			width: 100%;
+		}
+
+		table,
+		td {
+			border: 1px solid #404040;
+		}
+
+		td:nth-child(1),
+		td:nth-child(2) {
+			white-space: nowrap;
+			text-align: center;
+		}
+
+		.outgoing {
+			color: #008000;
+		}
+
+		.outgoing.cache {
+			background: #008000;
+			color: white;
+		}
+
+		.incoming {
+			color: #C00000;
+		}
+
+		.incoming.cache {
+			background: #C00000;
+			color: white;
+		}
+	</style>
+	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.7.2/angular.min.js"></script>
+	<script>
+		app = angular.module("myApp", []);
+		app.controller('controller', ['$scope', '$http', async ($scope, $http) => {
+			window.$scope = $scope;
+			loadConfig();
+			$scope.saveConfig = () => { saveConfig() }
+			$scope.readyStates = ["CONNECTING", "OPEN", "CLOSING", "CLOSED"];
+			$scope.incomingPort = incomingPort;
+			$scope.autoscroll = true;
+			$scope.safeApply = function (fn) {
+				var phase = this.$root.$$phase;
+				if (phase == '$apply' || phase == '$digest') {
+					if (fn && (typeof (fn) === 'function')) { fn(); }
+				} else { this.$apply(fn); }
+			};
+
+			$scope.hijack = false;
+			$scope.incoming = {
+				name: "",
+				ws: { readyState: 3 },
+				cache: [],
+				rule: { action: "block" }
+			}
+			$scope.outgoing = {
+				name: "",
+				url: "",
+				ws: { readyState: 3 },
+				cache: [],
+				rule: { action: "block" }
+			}
+			$scope.messages = [];
+
+			$scope.scrollToBottom = () => {
+				if ($scope.autoscroll) {
+					document.querySelector("#autoscroll").scrollIntoView();
+				}
+			}
+
+			$scope.systemMessage = (msg) => {
+				var message = {
+					class: "system",
+					date: new Date().toJSON(),
+					dir: "System",
+					msg: msg.toString()
+				};
+				$scope.messages.push(message);
+				$scope.safeApply();
+				setTimeout($scope.scrollToBottom, 1);
+			}
+
+			$scope.message = (dir, from, to, isCache, msg, forward) => {
+				var dest = isCache ? "Cache" : to.name;
+				var message = {
+					class: dir + (isCache ? " cache" : ""),
+					date: new Date().toJSON(),
+					dir: `${from.name} -> ${dest}`,
+					msg: msg.toString()
+				};
+				$scope.messages.push(message);
+				$scope.safeApply();
+				$scope.scrollToBottom();
+				if (forward) {
+					if (isCache) {
+						to.cache.push(msg);
+					} else {
+						to.ws.send(msg);
+					}
+				}
+			};
+
+			$scope.toggleHijacking = (connection) => {
+				var mode = connection.rule.enabled ? "ON" : "OFF";
+				$scope.systemMessage(`Hijacking rule for messages from ${connection.name} ${mode}`)
+			}
+
+			$scope.sendToIncoming = (msg) => {
+				var message = {
+					class: "system",
+					date: new Date().toJSON(),
+					dir: `PROXY -> ${$scope.incoming.name}`,
+					msg: msg.toString()
+				};
+				$scope.messages.push(message);
+				$scope.safeApply();
+				$scope.scrollToBottom();
+				$scope.incoming.ws.send(msg.toString());
+			}
+			$scope.sendToOutgoing = (msg) => {
+				var message = {
+					class: "system",
+					date: new Date().toJSON(),
+					dir: `PROXY -> ${$scope.outgoing.name}`,
+					msg: msg.toString()
+				};
+				$scope.messages.push(message);
+				$scope.safeApply();
+				$scope.scrollToBottom();
+				$scope.outgoing.ws.send(msg.toString());
+			}
+		}]);
+	</script>
+</head>
+
+<body ng-app="myApp">
+	<div ng-controller="controller" id="controller">
+		<div id="header">
+			<div class="connection">
+				<span class="readyState {{readyStates[incoming.ws.readyState]}}">{{readyStates[incoming.ws.readyState]}}</span>
+				<button ng-click="incoming.ws.close()">Close</button>
+				<label for="incomingname">Incoming name:<input ng-model="incoming.name" id="incomingname" ng-change="saveConfig()"></label>
+				<span>connect {{incoming.name}} to ws://localhost:{{incomingPort}}</span>
+				<span ng-if="outgoing.cache.length > 0" class="cachedMessages">{{outgoing.cache.length}} cached messages</span>
+				<input ng-model="incomingInsert" id="incomingInsert" placeholder="Message to send to {{incoming.name}}"><button ng-click="sendToIncoming(incomingInsert)" class="send">Send</button>
+				IF
+				<input ng-model="incoming.rule.key" placeholder="key">
+				=
+				<input ng-model="incoming.rule.value" placeholder="value">
+				THEN
+				<select ng-model="incoming.rule.action">
+					<option value="block">Block message</option>
+				</select>
+				<label for="hijackIncoming" class="{{incoming.rule.enabled}} checkBoxLabel">
+					Enable
+					<input type="checkbox" id="hijackIncoming" ng-model="incoming.rule.enabled" ng-change="toggleHijacking(incoming)">
+				</label>
+			</div>
+			<div class="connection">
+				<span class="readyState {{readyStates[outgoing.ws.readyState]}}">{{readyStates[outgoing.ws.readyState]}}</span>
+				<button ng-click="outgoing.ws.close()">Close</button>
+				<label for="outgoingname">Outgoing name:<input ng-model="outgoing.name" id="outgoingname" ng-change="saveConfig()"></label>
+				<label for="outgoingurl">URL:<input ng-model="outgoing.url" id="outgoingurl" ng-change="saveConfig()"></label>
+				<span ng-if="incoming.cache.length > 0" class="cachedMessages">{{incoming.cache.length}} cached messages</span>
+				<input ng-model="outgoingInsert" id="outgoingInsert" placeholder="Message to send to {{outgoing.name}}"><button ng-click="sendToOutgoing(outgoingInsert)" class="send">Send</button>
+				IF
+				<input ng-model="outgoing.rule.key" placeholder="key">
+				=
+				<input ng-model="outgoing.rule.value" placeholder="value">
+				THEN
+				<select ng-model="outgoing.rule.action">
+					<option value="block">Block message</option>
+				</select>
+				<label for="hijackOutgoing" class="{{outgoing.rule.enabled}} checkBoxLabel">
+					Enable
+					<input type="checkbox" id="hijackOutgoing" ng-model="outgoing.rule.enabled" ng-change="toggleHijacking(outgoing)">
+				</label>
+			</div>
+			<br>
+
+			<br>
+		</div>
+		<div id="tableWrapper">
+			<table id="messages" border cellspacing="0" cellpadding="0">
+				<tbody>
+					<tr ng-repeat="message in messages" class="{{message.class}}">
+						<td>{{message.date}}</td>
+						<td>{{message.dir}}</td>
+						<td>{{message.msg}}</td>
+					</tr>
+				</tbody>
+				<tfoot>
+					<tr>
+						<td colspan="3">
+							<label for="autoscroll">Autoscroll<input type="checkbox" id="autoscroll" ng-model="autoscroll"></label>
+						</td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+	</div>
+</body>
+
+</html>
