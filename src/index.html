@@ -97,6 +97,11 @@
 			box-sizing: border-box;
 		}
 
+		.rule,
+		.rule div {
+			display: inline-block;
+		}
+
 		button.send {
 			width: 50px;
 		}
@@ -183,14 +188,14 @@
 				name: "",
 				ws: { readyState: 3 },
 				cache: [],
-				rule: { action: "block" }
+				rule: { action: "block", modifyType: "string" }
 			}
 			$scope.outgoing = {
 				name: "",
 				url: "",
 				ws: { readyState: 3 },
 				cache: [],
-				rule: { action: "block" }
+				rule: { action: "block", modifyType: "string" }
 			}
 			$scope.messages = [];
 
@@ -275,18 +280,36 @@
 				<span>connect {{incoming.name}} to ws://localhost:{{incomingPort}}</span>
 				<span ng-if="outgoing.cache.length > 0" class="cachedMessages">{{outgoing.cache.length}} cached messages</span>
 				<input ng-model="incomingInsert" id="incomingInsert" placeholder="Message to send to {{incoming.name}}"><button ng-click="sendToIncoming(incomingInsert)" class="send">Send</button>
-				IF
-				<input ng-model="incoming.rule.key" placeholder="key">
-				=
-				<input ng-model="incoming.rule.value" placeholder="value">
-				THEN
-				<select ng-model="incoming.rule.action">
-					<option value="block">Block message</option>
-				</select>
-				<label for="hijackIncoming" class="{{incoming.rule.enabled}} checkBoxLabel">
-					Enable
-					<input type="checkbox" id="hijackIncoming" ng-model="incoming.rule.enabled" ng-change="toggleHijacking(incoming)">
-				</label>
+				<div class="rule">
+					IF
+					<input ng-model="incoming.rule.key" placeholder="key">
+					==
+					<input ng-model="incoming.rule.value" placeholder="value">
+					THEN
+					<select ng-model="incoming.rule.action">
+						<option value="block">Block message</option>
+						<option value="modify">Modify message</option>
+						<option value="replace">Replace message</option>
+					</select>
+					<div ng-if="incoming.rule.action == 'modify'">
+						Key <input ng-model="incoming.rule.modifyKey" placeholder="key">
+						New Value
+						<select ng-model="incoming.rule.modifyType">
+							<option value="string">String</option>
+							<option value="number">Number</option>
+							<option value="json">JSON</option>
+						</select>
+						<input ng-model="incoming.rule.modifyValue" placeholder="value" title="{{incoming.rule.modifyType == 'json' ? 'MUST BE VALID JSON':''}}">
+					</div>
+					<div ng-if="incoming.rule.action == 'replace'">
+						Replacement
+						<input ng-model="incoming.rule.replaceValue" placeholder="value" title="MUST BE VALID JSON">
+					</div>
+					<label for="hijackIncoming" class="{{incoming.rule.enabled}} checkBoxLabel">
+						Enable
+						<input type="checkbox" id="hijackIncoming" ng-model="incoming.rule.enabled" ng-change="toggleHijacking(incoming)">
+					</label>
+				</div>
 			</div>
 			<div class="connection">
 				<span class="readyState {{readyStates[outgoing.ws.readyState]}}">{{readyStates[outgoing.ws.readyState]}}</span>
@@ -295,18 +318,36 @@
 				<label for="outgoingurl">URL:<input ng-model="outgoing.url" id="outgoingurl" ng-change="saveConfig()"></label>
 				<span ng-if="incoming.cache.length > 0" class="cachedMessages">{{incoming.cache.length}} cached messages</span>
 				<input ng-model="outgoingInsert" id="outgoingInsert" placeholder="Message to send to {{outgoing.name}}"><button ng-click="sendToOutgoing(outgoingInsert)" class="send">Send</button>
-				IF
-				<input ng-model="outgoing.rule.key" placeholder="key">
-				=
-				<input ng-model="outgoing.rule.value" placeholder="value">
-				THEN
-				<select ng-model="outgoing.rule.action">
-					<option value="block">Block message</option>
-				</select>
-				<label for="hijackOutgoing" class="{{outgoing.rule.enabled}} checkBoxLabel">
-					Enable
-					<input type="checkbox" id="hijackOutgoing" ng-model="outgoing.rule.enabled" ng-change="toggleHijacking(outgoing)">
-				</label>
+				<div class="rule">
+					IF
+					<input ng-model="outgoing.rule.key" placeholder="key">
+					==
+					<input ng-model="outgoing.rule.value" placeholder="value">
+					THEN
+					<select ng-model="outgoing.rule.action">
+						<option value="block">Block message</option>
+						<option value="modify">Modify message</option>
+						<option value="replace">Replace message</option>
+					</select>
+					<div ng-if="outgoing.rule.action == 'modify'">
+						Key <input ng-model="outgoing.rule.modifyKey" placeholder="key">
+						New Value
+						<select ng-model="outgoing.rule.modifyType" placeholder="type">
+							<option value="string">String</option>
+							<option value="number">Number</option>
+							<option value="json">JSON</option>
+						</select>
+						<input ng-model="outgoing.rule.modifyValue" placeholder="value" title="{{outgoing.rule.modifyType == 'json' ? 'MUST BE VALID JSON':''}}">
+					</div>
+					<div ng-if="outgoing.rule.action == 'replace'">
+						Replacement
+						<input ng-model="outgoing.rule.replaceValue" placeholder="value" title="MUST BE VALID JSON">
+					</div>
+					<label for="hijackOutgoing" class="{{outgoing.rule.enabled}} checkBoxLabel">
+						Enable
+						<input type="checkbox" id="hijackOutgoing" ng-model="outgoing.rule.enabled" ng-change="toggleHijacking(outgoing)">
+					</label>
+				</div>
 			</div>
 			<br>
 

@@ -52,7 +52,7 @@ wss.on('connection', function connection(incomingWS) {
 		for (msg of $scope.outgoing.cache) {
 			$scope.message("outgoing", { name: "Cache" }, $scope.outgoing, false, msg, true);
 		}
-		$scope.incoming.cache = [];
+		$scope.outgoing.cache = [];
 	});
 
 	$scope.systemMessage(` ${$scope.incoming.name} incoming connection open`);
@@ -60,7 +60,7 @@ wss.on('connection', function connection(incomingWS) {
 	for (msg of $scope.incoming.cache) {
 		$scope.message("incoming", { name: "Cache" }, $scope.incoming, false, msg, true);
 	}
-	$scope.outgoing.cache = [];
+	$scope.incoming.cache = [];
 
 	//  Forwards messages from incoming to outgoing
 	incomingWS.on('message', data => {
@@ -69,7 +69,34 @@ wss.on('connection', function connection(incomingWS) {
 			if ($scope.incoming.rule.enabled) {
 				var message = JSON.parse(data);
 				if (message[$scope.incoming.rule.key] == $scope.incoming.rule.value) {
-					$scope.message("system", $scope.incoming, { name: "PROXY" }, false, data, false);
+					switch ($scope.incoming.rule.action) {
+						case 'block':
+							$scope.message("system", $scope.incoming, { name: "PROXY" }, false, data, false);
+							break;
+						case 'modify':
+							$scope.message("system", $scope.incoming, { name: "PROXY" }, false, data, false);
+							var newValue;
+							switch ($scope.incoming.rule.modifyType) {
+								case 'string':
+									newValue = $scope.incoming.rule.modifyValue;
+									break;
+								case 'number':
+									newValue = Number($scope.incoming.rule.modifyValue);
+									break;
+								case 'json':
+									newValue = JSON.parse($scope.incoming.rule.modifyValue);
+									break;
+							}
+							message[$scope.incoming.rule.modifyKey] = newValue;
+							var newData = JSON.stringify(message);
+							$scope.message("system", { name: "PROXY" }, $scope.outgoing, false, newData, true);
+							break;
+						case 'replace':
+							$scope.message("system", $scope.incoming, { name: "PROXY" }, false, data, false);
+							var newData = $scope.incoming.rule.replaceValue;
+							$scope.message("system", { name: "PROXY" }, $scope.outgoing, false, newData, true);
+							break;
+					}
 					return;
 				}
 			}
@@ -87,7 +114,35 @@ wss.on('connection', function connection(incomingWS) {
 			if ($scope.outgoing.rule.enabled) {
 				var message = JSON.parse(data);
 				if (message[$scope.outgoing.rule.key] == $scope.outgoing.rule.value) {
-					$scope.message("system", $scope.outgoing, { name: "PROXY" }, false, data, false);
+					switch ($scope.outgoing.rule.action) {
+						case 'block':
+							$scope.message("system", $scope.outgoing, { name: "PROXY" }, false, data, false);
+							break;
+						case 'modify':
+							$scope.message("system", $scope.outgoing, { name: "PROXY" }, false, data, false);
+							var newValue;
+							switch ($scope.outgoing.rule.modifyType) {
+								case 'string':
+									newValue = $scope.outgoing.rule.modifyValue;
+									break;
+								case 'number':
+									newValue = Number($scope.outgoing.rule.modifyValue);
+									break;
+								case 'json':
+									newValue = JSON.parse($scope.outgoing.rule.modifyValue);
+									break;
+							}
+							message[$scope.outgoing.rule.modifyKey] = newValue;
+							var newData = JSON.stringify(message);
+							console.log("newData", newData)
+							$scope.message("system", { name: "PROXY" }, $scope.incoming, false, newData, true);
+							break;
+						case 'replace':
+							$scope.message("system", $scope.outgoing, { name: "PROXY" }, false, data, false);
+							var newData = $scope.outgoing.rule.replaceValue;
+							$scope.message("system", { name: "PROXY" }, $scope.incoming, false, newData, true);
+							break;
+					}
 					return;
 				}
 			}
