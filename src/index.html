@@ -309,6 +309,10 @@
 						Enable
 						<input type="checkbox" id="hijackIncoming" ng-model="incoming.rule.enabled" ng-change="toggleHijacking(incoming)">
 					</label>
+					<label for="hijackIncomingOnce" class="{{incoming.rule.enabled}} checkBoxLabel">
+						Only Once
+						<input type="checkbox" id="hijackIncomingOnce" ng-model="incoming.rule.enabledOnce">
+					</label>
 				</div>
 			</div>
 			<div class="connection">
@@ -346,6 +350,10 @@
 					<label for="hijackOutgoing" class="{{outgoing.rule.enabled}} checkBoxLabel">
 						Enable
 						<input type="checkbox" id="hijackOutgoing" ng-model="outgoing.rule.enabled" ng-change="toggleHijacking(outgoing)">
+					</label>
+					<label for="hijackOutgoingOnce" class="{{outgoing.rule.enabled}} checkBoxLabel">
+						Only Once
+						<input type="checkbox" id="hijackOutgoingOnce" ng-model="outgoing.rule.enabledOnce">
 					</label>
 				</div>
 			</div>

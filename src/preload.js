@@ -97,6 +97,10 @@ wss.on('connection', function connection(incomingWS) {
 							$scope.message("system", { name: "PROXY" }, $scope.outgoing, false, newData, true);
 							break;
 					}
+					if ($scope.incoming.rule.enabledOnce) {
+						$scope.incoming.rule.enabled = false
+						$scope.toggleHijacking($scope.incoming)
+					}
 					return;
 				}
 			}
@@ -142,6 +146,10 @@ wss.on('connection', function connection(incomingWS) {
 							var newData = $scope.outgoing.rule.replaceValue;
 							$scope.message("system", { name: "PROXY" }, $scope.incoming, false, newData, true);
 							break;
+					}
+					if ($scope.outgoing.rule.enabledOnce) {
+						$scope.outgoing.rule.enabled = false
+						$scope.toggleHijacking($scope.outgoing)
 					}
 					return;
 				}
